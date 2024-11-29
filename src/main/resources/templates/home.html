@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Chat</title>
+    <th:block th:fragment="header">
+        <!--  BootStrap5  -->
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+        <!--  FontAwesome  -->
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+        <!--  QuillCss-->
+        <link href="https://cdn.jsdelivr.net/npm/quill@2.0.0-rc.3/dist/quill.snow.css" rel="stylesheet">
+    </th:block>
+    <style>
+        .flex-ul {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 0;
+            list-style: none;
+            height: 100%;
+            overflow-y: auto; /* 자동으로 수직 스크롤바가 나타나도록 설정 */
+        }
+        .flex-ul li {
+            margin-bottom: 10px;
+        }
+        .link-tag{
+            /*color: black;*/
+            text-decoration: none;
+        }
+        #chatPanel {
+            height: 100%;
+        }
+        #chatRoomPanel{
+            overflow-y: auto;
+        }
+        #chatContainer{
+            overflow-y: auto;
+            white-space: normal;  /* 줄바꿈을 허용 */
+            word-wrap: break-word;  /* 단어가 부모 요소 크기를 넘어가면 줄바꿈 */
+            word-break: break-all;  /* 모든 글자가 넘칠 때 줄바꿈 (한글 등 모든 언어에서 작동) */
+            overflow-wrap: break-word; /* 텍스트가 길어지면 줄바꿈 */
+        }
+        .tab-pane{
+            overflow-y: auto;
+            height: auto;
+        }
+        .message{
+            border-radius: 5px;
+            width: fit-content;
+            max-width: 100%;
+            padding: 3px;
+            margin-bottom: 5px;
+        }
+        .mine{
+            margin-left: auto;
+        }
+        .your{
+            margin-right: auto;
+        }
+    </style>
+</head>
+<body>
+<!-- html data -->
+
+<section>
+    <div class="container py-5 vh-100">
+
+        <div class="row" style="height: 100%">
+
+            <div class="col-md-6 col-lg-5 col-xl-4 mb-4 mb-md-0" style="height: 100%">
+                <h2 class="font-weight-bold mb-3 text-center text-lg-start" th:text="${user.userName}"></h2>
+                <div class="d-flex justify-content-end py-3" style="width: 100%">
+                    <button class="btn btn-primary" type="button" id="newChat">새로운 사용자 추가</button>
+                </div>
+                <div class="card" style="height: 80%">
+                    <div class="card-body" id="chatRoomPanel">
+                        <div class="list-group list-group-flush mt-0" id="chatRoomList" role="tablist">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="chatPanel" class="col-md-6 col-lg-7 col-xl-8 d-flex flex-column" style="height: 100%;">
+                <div id="chatContainer" class="tab-content flex-grow-1">
+                </div>
+                <div id="ulContainer">
+                    <ul class="flex-ul mb-0">
+                        <li class="bg-white mb-3">
+                            <div class="form-outline">
+                                <div id="quill"></div>
+                            </div>
+                        </li>
+                        <li>
+                            <button type="button" onclick="sendMessage()" class="btn btn-primary btn-rounded float-end">Send</button>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+    </div> <!--    container-->
+
+</section>
+
+<!-- html data-->
+
+<th:block th:fragment="footer">
+    <!-- BootStrap5 js -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <!-- jquery -->
+    <script  src="https://code.jquery.com/jquery-latest.min.js"></script>
+    <!-- quill editor-->
+    <script src="https://cdn.jsdelivr.net/npm/quill@2.0.0-rc.3/dist/quill.js"></script>
+
+</th:block>
+
+<script th:inline="javascript">
+    let quill;
+    let socket;
+    let userId;
+    let targetTab;
+    const ipAddress = /*[[${serverIp}]]*/'';
+    const Port = /*[[${serverWebPort}]]*/ '';
+
+    const socketList = [];
+
+    const messageKeybindings = {
+        list: {
+            key: 'Enter',
+            handler: function () {
+                sendMessage();
+                return false;
+            }
+        }
+    }
+
+
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const quillOption = {
+            theme: 'snow',
+            modules: {
+                toolbar: false,
+                keyboard: {
+                    bindings: messageKeybindings
+                }
+            }
+        }
+
+        quill = new Quill('#quill', quillOption);
+    });
+
+    document.getElementById('newChat').addEventListener('click', async () => {
+        try {
+            const response = await fetch('/matching', {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                }
+            });
+
+            if (response.ok) {
+                alert("매칭 등록");
+
+                const data = await response.json();
+                // console.log(data);
+
+                // socket = new WebSocket(`ws://${ipAddress}:${Port}/chat?userId=`+data.userId);
+                socket = new WebSocket(`ws://${ipAddress}:${Port}/chat`);
+
+                socketList.push(socket);
+
+                userId = data.userId;
+
+                socketSettings(socket);
+            } else {
+                alert("잠시 후에 다시 시도해주세요.");
+                // console.log("Failed to fetch matching data");
+            }
+        } catch (error) {
+            console.log("Error occurred:", error);
+        }
+    });
+
+    function sendMessage() {
+        let text = getPlainTextFromQuill(quill);
+        if (text.length <= 200 && text.length !== 0) {
+            socket.send(JSON.stringify({
+                sender: userId,
+                messageType: 0,
+                chatroomId: targetTab.getAttribute("data-roomId"),
+                message: text
+            }));
+        }else{
+            alert("텍스트는 200자 이하로만 작성해주세요.");
+        }
+
+
+        quill.setText('');
+    }
+
+    function exitRoom(event){
+        socket.send(JSON.stringify({
+            sender: userId,
+            messageType: 2,
+            chatroomId: event.getAttribute("data-roomId"),
+        }));
+    }
+
+    function deleteElement(parse){
+        // parseData 가 AckMessage 의 객체일 때 가능
+        let querySelector = document.querySelector(`#chatRoomList [data-roomId="${parse.roomId}"]`);
+        let attribute = querySelector.getAttribute("aria-controls");
+        let elementById = document.getElementById(attribute);
+
+        querySelector.remove();
+        elementById.remove();
+        targetTab = '';
+    }
+
+    function addListElement(parse) {
+        // parseData 가 AckMessage 의 객체일 때 가능
+
+        let index = socketList.length - 1;
+        let chatList = document.createElement('a');
+        let text = document.createTextNode(index + '번 채팅방');
+        chatList.appendChild(text);
+
+        // 'd-flex'와 'justify-content-between'을 추가해 양쪽 정렬
+        chatList.classList.add('list-group-item', 'list-group-item-action', 'd-flex', 'justify-content-between');
+        chatList.setAttribute("id", "chatRoom-" + index);
+        chatList.setAttribute("data-bs-toggle", "list");
+        chatList.setAttribute("href", "#" + "chatContainer-" + index);
+        chatList.setAttribute("role", "tab");
+        chatList.setAttribute("aria-controls", "chatContainer-" + index);
+        chatList.setAttribute("data-roomId", parse.roomId);
+        chatList.addEventListener('shown.bs.tab', event => {
+            targetTab = event.target;
+        });
+        // 채팅창 리스트에 추가될 a 태그
+
+        let deleteBtn = document.createElement('a');
+        let deleteIcon = document.createElement('i');
+        deleteIcon.classList.add('fa-solid', 'fa-trash', 'fa-lg', 'text-secondary');
+        deleteBtn.appendChild(deleteIcon);
+        deleteBtn.classList.add('me-0');
+        deleteBtn.setAttribute("data-roomId", parse.roomId);
+        deleteBtn.setAttribute("onclick", "exitRoom(this)");
+
+        // 삭제 버튼을 'chatList'에 추가하여 한 줄로 정렬
+        chatList.appendChild(deleteBtn);
+
+        let chatRoomList = document.getElementById('chatRoomList');
+        chatRoomList.appendChild(chatList);
+        // 리스트에 a 태그 추가
+
+        let chatContainer = document.createElement('div');
+        chatContainer.classList.add('tab-pane', 'fade');
+        chatContainer.setAttribute("id", "chatContainer-" + index);
+        chatContainer.setAttribute("role", "tabpanel");
+        chatContainer.setAttribute("aria-labelledby", chatList.id);
+
+        // 실제 채팅을 보여줄 div 태그 (panel) 추가
+        let elementById = document.getElementById("chatContainer");
+        elementById.appendChild(chatContainer);
+
+        alert("매칭 성공");
+    }
+
+
+    function addMsgElement(parse){
+        // parseData 가 Message 의 객체일 때 가능
+        let message = document.createElement('div');
+        message.classList.add('message', 'text-light');
+        message.textContent = parse.message;
+        if (parse.sender === userId) {
+            message.classList.add('bg-primary', 'bg-primary.bg-gradient', 'mine');
+        }else{
+            message.classList.add('bg-secondary', 'bg-secondary.bg-gradient', 'your');
+        }
+        let chatPanel = document.querySelector(`#chatRoomList [data-roomId="${parse.chatroomId}"]`);
+        let attribute = chatPanel.getAttribute("aria-controls");
+        let chatroomId = document.getElementById(attribute);
+        if (chatroomId) {
+            chatroomId.appendChild(message);
+        }
+        updateScroll(chatroomId.parentElement);
+        //  각 panel 에 맞는 message 를 append 하고 스크롤 업데이트
+    }
+
+    function socketSettings(socket){
+        socket.onopen = function (event){
+            socket.send(JSON.stringify({
+                sender: userId,
+                messageType: 1
+            }));
+        }
+
+        socket.onmessage = function (event) {
+            let parse = JSON.parse(event.data);
+            // console.log(parse);
+
+            if (parse.ackMessage === "deleteRoom") {
+                deleteElement(parse);
+                alert("상대방이 모두 나가 종료된 채팅방입니다.");
+            }
+            if (parse.ackMessage === "exitChatRoom"){
+                deleteElement(parse);
+                alert("성공적으로 채팅을 종료하였습니다.");
+            }
+            if (parse.ackMessage === "ackMessage") {
+                addListElement(parse);
+            }
+            if (parse.message != null) {
+                addMsgElement(parse);
+            }
+
+
+        }
+    }
+
+    function getPlainTextFromQuill(quill) {
+        // Quill 에디터에서 Delta 형식의 객체를 가져옵니다.
+        const delta = quill.getContents();
+
+        // Delta를 사용하여 텍스트를 원시 텍스트로 변환합니다.
+        const rawText = delta.reduce((text, op) => {
+            if (typeof op.insert === 'string') {
+                return text + op.insert;
+            }
+            return text;
+        }, '');
+
+        // 줄 바꿈 문자를 제거하고 반환합니다.
+        return rawText.replace(/\n/g, '');
+    }
+
+    function updateScroll(container) {
+        container.scrollTop = container.scrollHeight;
+    }
+
+
+</script>
+</body>
+</html>
