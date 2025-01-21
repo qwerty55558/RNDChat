@@ -23,7 +23,7 @@
 
 
 ## 🗒️Record
-* [RNDChat 토이프로젝트](https://velog.io/@qwerty55558/RNDChat-%ED%86%A0%EC%9D%B4%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8)
+* [RNDChat 토이프로젝트](https://velog.io/@qwerty55558/RNDChat-%ED%86%A0%EC%9D%B4%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8) (시연, 테스팅 등등 총 정리글 링크입니다.)
 
 ## ✅주요 기능
 * **계정**
