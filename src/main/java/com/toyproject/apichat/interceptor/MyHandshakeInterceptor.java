@@ -19,7 +19,6 @@ public class MyHandshakeInterceptor extends HttpSessionHandshakeInterceptor {
     @Override
     public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response, WebSocketHandler wsHandler, Map<String, Object> attributes) throws Exception {
         log.info("handshake begin") ;
-
         return super.beforeHandshake(request, response, wsHandler, attributes);
     }
 }
