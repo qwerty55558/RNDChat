@@ -42,6 +42,8 @@
   * 리눅스 기반의 호스팅 서버 구현
 ## 🗂️ERD 구조
 
+![스크린샷 2025-01-21 180117](https://github.com/user-attachments/assets/164f5b53-e25e-4da9-9e8b-b48c687cdeee)
+
 
 > [ERD Cloud 링크](https://www.erdcloud.com/d/RBcM828NP7vPoNspu)
 
